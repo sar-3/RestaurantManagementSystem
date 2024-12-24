@@ -26,7 +26,7 @@ namespace RestaurantManagementSystem
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
@@ -113,10 +113,9 @@ namespace RestaurantManagementSystem
                 {
                     conn.Open();
 
-                    // Türkçe karakterlerin düzgün işlenmesi için karakter setini ayarlayın
                     using (NpgsqlCommand encodingCmd = new NpgsqlCommand("SET CLIENT_ENCODING TO 'UTF8';", conn))
                     {
-                        encodingCmd.ExecuteNonQuery(); // Karakter seti ayarını yapın
+                        encodingCmd.ExecuteNonQuery();
                     }
 
                     using (NpgsqlDataReader reader = cmd.ExecuteReader())
@@ -221,73 +220,6 @@ namespace RestaurantManagementSystem
                 LoadYemekler();
             }
         }
-        private void yemekGuncelle_Click(object sender, EventArgs e)
-        {
-            if (dgvYemekler.SelectedRows.Count == 0)
-            {
-                MessageBox.Show("Lütfen güncellemek istediğiniz yemeği seçin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            int yemekId = Convert.ToInt32(dgvYemekler.SelectedRows[0].Cells["yemek_id"].Value);
-            string yemekIsmi = txtYemekIsmi.Text;
-            decimal fiyat = numFiyat.Value;
-            int kategoriId;
-
-            // Kategori seçimi kontrolü
-            if (cmbKategori.SelectedValue == null || !int.TryParse(cmbKategori.SelectedValue.ToString(), out kategoriId))
-            {
-                MessageBox.Show("Lütfen geçerli bir kategori seçin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            string icerik = txtIcerik.Text;
-            try
-            {
-                string checkQuery = "SELECT COUNT(*) FROM yemek WHERE isim = @isim AND yemek_id != @yemek_id";
-                using (NpgsqlCommand checkCmd = new NpgsqlCommand(checkQuery, conn))
-                {
-                    checkCmd.Parameters.AddWithValue("@isim", yemekIsmi);
-                    checkCmd.Parameters.AddWithValue("@yemek_id", yemekId);
-
-                    conn.Open();
-                    int count = (int)checkCmd.ExecuteScalar();
-                    conn.Close();
-
-                    if (count > 0)
-                    {
-                        MessageBox.Show("Aynı isme sahip bir yemek zaten var.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-                }
-
-                string updateQuery = "UPDATE yemek SET isim = @isim, fiyat = @fiyat, kategori_id = @kategori_id, icerik = @icerik WHERE yemek_id = @yemek_id";
-                using (NpgsqlCommand updateCmd = new NpgsqlCommand(updateQuery, conn))
-                {
-                    updateCmd.Parameters.AddWithValue("@isim", yemekIsmi);
-                    updateCmd.Parameters.AddWithValue("@fiyat", fiyat);
-                    updateCmd.Parameters.AddWithValue("@kategori_id", kategoriId);
-                    updateCmd.Parameters.AddWithValue("@icerik", icerik);
-                    updateCmd.Parameters.AddWithValue("@yemek_id", yemekId);
-
-                    conn.Open();
-                    updateCmd.ExecuteNonQuery();
-                    conn.Close();
-
-                    MessageBox.Show("Yemek başarıyla güncellendi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    ResetInputs();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Güncelleme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                conn.Close(); // burada redundant olabilir, çünkü 'using' bloğu içinde hallediliyor
-                LoadYemekler();
-            }
-        }
         private void yemekSil_Click(object sender, EventArgs e)
         {
             if (dgvYemekler.SelectedRows.Count == 0)
@@ -345,7 +277,7 @@ namespace RestaurantManagementSystem
 
             query += " ORDER BY yemek_id";
 
-            StringBuilder yemeklerListesi = new StringBuilder(); // Yemekler için bir liste oluşturuluyor
+            StringBuilder yemeklerListesi = new StringBuilder(); 
 
             try
             {
@@ -365,7 +297,6 @@ namespace RestaurantManagementSystem
                             decimal fiyat = reader.GetDecimal(reader.GetOrdinal("fiyat"));
                             string icerik = reader["icerik"].ToString();
 
-                            // Yemek bilgilerini StringBuilder'a ekleyin
                             yemeklerListesi.AppendLine($"Yemek Adı: {yemekAdi}, Fiyat: {fiyat:C}, İçerik: {icerik}");
                         }
                     }
@@ -380,7 +311,7 @@ namespace RestaurantManagementSystem
                 conn.Close();
             }
 
-            return yemeklerListesi.ToString(); // Yemek listesini döndürün
+            return yemeklerListesi.ToString();
         }
         private void araButton_Click(object sender, EventArgs e)
         {
@@ -390,11 +321,11 @@ namespace RestaurantManagementSystem
 
             if (string.IsNullOrEmpty(kategoriAdi))
             {
-                yemekler = LoadKatagoriicinYemekler();  // Tüm yemekleri yükler
+                yemekler = LoadKatagoriicinYemekler();
             }
             else
             {
-                yemekler = LoadKatagoriicinYemekler(kategoriAdi);  // Kategoriye göre yemekleri yükler
+                yemekler = LoadKatagoriicinYemekler(kategoriAdi); 
             }
 
             if (string.IsNullOrEmpty(yemekler))

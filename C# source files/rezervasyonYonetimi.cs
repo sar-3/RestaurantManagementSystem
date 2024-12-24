@@ -77,7 +77,6 @@ namespace RestaurantManagementSystem
             var textBox = sender as TextBox;
             if (textBox != null && defaultTexts.ContainsKey(textBox))
             {
-                // Varsayılan metinse temizle
                 if (textBox.Text == defaultTexts[textBox])
                 {
                     textBox.Text = "";
@@ -93,7 +92,7 @@ namespace RestaurantManagementSystem
                 if (string.IsNullOrWhiteSpace(textBox.Text))
                 {
                     textBox.Text = defaultTexts[textBox];
-                    textBox.ForeColor = Color.Gray; // Yazı rengini gri yap
+                    textBox.ForeColor = Color.Gray;
                 }
             }
         }
@@ -130,7 +129,7 @@ namespace RestaurantManagementSystem
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 

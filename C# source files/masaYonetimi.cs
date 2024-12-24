@@ -81,7 +81,7 @@ namespace RestaurantManagementSystem
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
@@ -130,9 +130,9 @@ namespace RestaurantManagementSystem
         }
         private void ClearFields()
         {
-            cmbBolge.SelectedIndex = 0;  // "Bölge seçin..." varsayılan değeri
-            cmbKapasite.SelectedIndex = 0;  // "Kapasite seçin..." varsayılan değeri
-            cmbDurum.SelectedIndex = 0;  // "Durum seçin..." varsayılan değeri
+            cmbBolge.SelectedIndex = 0; 
+            cmbKapasite.SelectedIndex = 0;  
+            cmbDurum.SelectedIndex = 0; 
 
         }
         private void masaEkle_Click(object sender, EventArgs e)
@@ -232,7 +232,6 @@ namespace RestaurantManagementSystem
                 string query = "SELECT masa_guncelle(@masa_id, @kapasite, @bolge, @durum)";
                 using (var cmd = new NpgsqlCommand(query, conn))
                 {
-                    // Parametreleri sorguya ekleyin
                     cmd.Parameters.AddWithValue("@masa_id", masaId);
                     cmd.Parameters.AddWithValue("@kapasite", int.Parse(cmbKapasite.SelectedItem.ToString()));
                     cmd.Parameters.AddWithValue("@bolge", cmbBolge.SelectedItem.ToString());

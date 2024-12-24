@@ -19,9 +19,10 @@ namespace RestaurantManagementSystem
             InitializeComponent();
             ConnectToDatabase();
         }
+
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
@@ -38,6 +39,7 @@ namespace RestaurantManagementSystem
                 conn?.Close();
             }
         }
+
         private void Form13_Load(object sender, EventArgs e)
         {
             string imagePath = @"C:\Users\w11tr\Desktop\VSC\coding_c++\RestaurantManagementSystem\images\genel_form.jpg";
@@ -46,6 +48,7 @@ namespace RestaurantManagementSystem
 
             LoadDeletedEmployees();
         }
+
         private void LoadDeletedEmployees()
         {
             if (conn.State != System.Data.ConnectionState.Open)
@@ -75,6 +78,7 @@ namespace RestaurantManagementSystem
                 conn.Close();
             }
         }
+
         private void geriButon_Click(object sender, EventArgs e)
         {
             Form9 form9 = new Form9();

@@ -23,7 +23,7 @@ namespace RestaurantManagementSystem
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
@@ -106,11 +106,10 @@ namespace RestaurantManagementSystem
             var textBox = sender as TextBox;
             if (textBox != null && defaultTexts.ContainsKey(textBox))
             {
-                // Varsayılan metinse temizle
                 if (textBox.Text == defaultTexts[textBox])
                 {
                     textBox.Text = "";
-                    textBox.ForeColor = Color.Black; // Yazı rengini siyah yap
+                    textBox.ForeColor = Color.Black; 
                 }
             }
         }
@@ -119,11 +118,10 @@ namespace RestaurantManagementSystem
             var textBox = sender as TextBox;
             if (textBox != null && defaultTexts.ContainsKey(textBox))
             {
-                // Boşsa varsayılan metni geri getir
                 if (string.IsNullOrWhiteSpace(textBox.Text))
                 {
                     textBox.Text = defaultTexts[textBox];
-                    textBox.ForeColor = Color.Gray; // Yazı rengini gri yap
+                    textBox.ForeColor = Color.Gray;
                 }
             }
         }
@@ -220,82 +218,6 @@ namespace RestaurantManagementSystem
                 LoadKategoriler();
             }
         }
-        private void guncelleRezervasyon_Click(object sender, EventArgs e)
-        {
-            if (dgvKategoriler.SelectedRows.Count == 0)
-            {
-                MessageBox.Show("Lütfen güncellemek istediğiniz kategoriyi seçin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            int kategoriId = Convert.ToInt32(dgvKategoriler.SelectedRows[0].Cells["kategori_id"].Value);
-            string yeniKategoriAdi = txtKategoriAdi.Text;
-
-            if (string.IsNullOrEmpty(yeniKategoriAdi))
-            {
-                MessageBox.Show("Lütfen yeni kategori adını girin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            string query = "UPDATE kategori SET kategori_adi = @yeniKategoriAdi WHERE kategori_id = @kategoriId";
-
-            try
-            {
-                using (NpgsqlCommand cmd = new NpgsqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@yeniKategoriAdi", yeniKategoriAdi);
-                    cmd.Parameters.AddWithValue("@kategoriId", kategoriId);
-
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    MessageBox.Show("Kategori başarıyla güncellendi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    ClearInputFields();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Güncelleme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                conn.Close();
-                LoadKategoriler();
-            }
-        }
-        private void silRezervasyon_Click(object sender, EventArgs e)
-        {
-            if (dgvKategoriler.SelectedRows.Count == 0)
-            {
-                MessageBox.Show("Lütfen silmek istediğiniz kategoriyi seçin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            int kategoriId = Convert.ToInt32(dgvKategoriler.SelectedRows[0].Cells["kategori_id"].Value);
-
-            string query = "SELECT sil_kategori(@kategoriId)";
-
-            try
-            {
-                using (NpgsqlCommand cmd = new NpgsqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@kategoriId", kategoriId);
-
-                    conn.Open();
-                    cmd.ExecuteNonQuery();
-                    MessageBox.Show("Kategori başarıyla silindi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    ClearInputFields();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Silme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                conn.Close();
-                LoadKategoriler();
-            }
-        }
         private void malzemeSil_Click(object sender, EventArgs e)
         {
             if (dgvMalzemeler.SelectedRows.Count == 0)
@@ -306,7 +228,7 @@ namespace RestaurantManagementSystem
 
             int malzemeId = Convert.ToInt32(dgvMalzemeler.SelectedRows[0].Cells["malzeme_id"].Value);
 
-            string query = "DELETE FROM malzeme WHERE malzeme_id = @malzemeId";
+            string query = "SELECT sil_malzeme(@malzemeId)";
 
             try
             {
@@ -320,9 +242,13 @@ namespace RestaurantManagementSystem
                     ClearMalzemeFields();
                 }
             }
+            catch (NpgsqlException ex)
+            {
+                MessageBox.Show($"Veritabanı hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
             catch (Exception ex)
             {
-                MessageBox.Show($"Silme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -339,24 +265,16 @@ namespace RestaurantManagementSystem
             }
 
             int malzemeId = Convert.ToInt32(dgvMalzemeler.SelectedRows[0].Cells["malzeme_id"].Value);
-            string malzemeAdi = txtMalzemeAdi.Text.Trim();
             int miktar = (int)numMiktar.Value;
 
-            if (string.IsNullOrEmpty(malzemeAdi))
-            {
-                MessageBox.Show("Lütfen malzeme adını girin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            string query = "UPDATE malzeme SET malzeme_adi = @malzemeAdi, miktar = @miktar WHERE malzeme_id = @malzemeId";
+            string query = "SELECT guncelle_malzeme(@malzemeId, @miktar)";
 
             try
             {
                 using (NpgsqlCommand cmd = new NpgsqlCommand(query, conn))
                 {
-                    cmd.Parameters.AddWithValue("@malzemeAdi", malzemeAdi);
-                    cmd.Parameters.AddWithValue("@miktar", miktar);
                     cmd.Parameters.AddWithValue("@malzemeId", malzemeId);
+                    cmd.Parameters.AddWithValue("@miktar", miktar);
 
                     conn.Open();
                     cmd.ExecuteNonQuery();
@@ -364,9 +282,13 @@ namespace RestaurantManagementSystem
                     ClearMalzemeFields();
                 }
             }
+            catch (NpgsqlException ex)
+            {
+                MessageBox.Show($"Veritabanı hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
             catch (Exception ex)
             {
-                MessageBox.Show($"Güncelleme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -397,7 +319,7 @@ namespace RestaurantManagementSystem
                 return;
             }
 
-            string query = "INSERT INTO malzeme (malzeme_adi, miktar) VALUES (@malzemeAdi, @miktar)";
+            string query = "SELECT ekle_malzeme(@malzemeAdi, @miktar)";
 
             try
             {
@@ -412,14 +334,102 @@ namespace RestaurantManagementSystem
                     ClearMalzemeFields();
                 }
             }
+            catch (NpgsqlException ex)
+            {
+                MessageBox.Show($"Veritabanı hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ekleme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 conn.Close();
                 LoadMalzemeler();
+            }
+        }
+        private void guncelleKategori_Click(object sender, EventArgs e)
+        {
+            if (dgvKategoriler.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Lütfen güncellemek istediğiniz kategoriyi seçin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int kategoriId = Convert.ToInt32(dgvKategoriler.SelectedRows[0].Cells["kategori_id"].Value);
+            string yeniKategoriAdi = txtKategoriAdi.Text;
+
+            if (string.IsNullOrEmpty(yeniKategoriAdi))
+            {
+                MessageBox.Show("Lütfen yeni kategori adını girin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string query = "SELECT guncelle_kategori(@kategoriId, @yeniKategoriAdi)";
+
+            try
+            {
+                using (NpgsqlCommand cmd = new NpgsqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@kategoriId", kategoriId);
+                    cmd.Parameters.AddWithValue("@yeniKategoriAdi", yeniKategoriAdi);
+
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                    MessageBox.Show("Kategori başarıyla güncellendi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ClearInputFields();
+                }
+            }
+            catch (NpgsqlException ex)
+            {
+                MessageBox.Show($"Veritabanı hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                conn.Close();
+                LoadKategoriler();
+            }
+        }
+        private void silKategori_Click(object sender, EventArgs e)
+        {
+            if (dgvKategoriler.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Lütfen silmek istediğiniz kategoriyi seçin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int kategoriId = Convert.ToInt32(dgvKategoriler.SelectedRows[0].Cells["kategori_id"].Value);
+
+            string query = "SELECT sil_kategori(@kategoriId)";
+
+            try
+            {
+                using (NpgsqlCommand cmd = new NpgsqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@kategoriId", kategoriId);
+
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                    MessageBox.Show("Kategori başarıyla silindi.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ClearInputFields();
+                }
+            }
+            catch (NpgsqlException ex)
+            {
+                MessageBox.Show($"Veritabanı hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                conn.Close();
+                LoadKategoriler();
             }
         }
     }

@@ -125,7 +125,7 @@ CREATE TABLE asci (
 CREATE TABLE IF NOT EXISTS malzeme (
     malzeme_id SERIAL PRIMARY KEY,
     malzeme_adi VARCHAR(100) NOT NULL UNIQUE,
-    miktar INT NOT NULL CHECK (miktar >= 0)
+    miktar INT NOT NULL DEFAULT 0
 );
 
 --16. Yemek-Malzeme Tablosu
@@ -261,7 +261,6 @@ BEGIN
         RAISE EXCEPTION 'Geçersiz durum: %! Lütfen "bos" veya "dolu" seçin.', p_durum;
     END IF;
 
-    -- Güncellenecek değerler belirtilmişse, tabloyu güncelle
     UPDATE masa
     SET 
         kapasite = COALESCE(p_kapasite, kapasite),
@@ -269,353 +268,9 @@ BEGIN
         durum = COALESCE(p_durum, durum)
     WHERE masa_id = p_masa_id;
 
-    -- Eğer bir güncelleme yapılmadıysa (örneğin, yanlış masa_id), bir uyarı ver
     IF NOT FOUND THEN
         RAISE NOTICE 'Güncelleme yapılacak kayıt bulunamadı: masa_id = %', p_masa_id;
     END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Çalışan Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_calisan(
-    p_isim VARCHAR, 
-    p_soyisim VARCHAR, 
-    p_pozisyon VARCHAR, 
-    p_iletisim_numarasi VARCHAR
-)
-RETURNS VOID AS $$
-BEGIN
-    -- İletişim numarasının boş olmaması kontrolü
-    IF p_iletisim_numarasi IS NULL OR p_iletisim_numarasi = '' THEN
-        RAISE EXCEPTION 'İletişim numarası boş olamaz!';
-    END IF;
-
-    -- Pozisyonun geçerli olup olmadığını kontrol et
-    IF p_pozisyon NOT IN ('garson', 'asci', 'personel') THEN
-        RAISE EXCEPTION 'Geçersiz pozisyon: %! Lütfen "garson", "asci" veya "personel" seçin.', p_pozisyon;
-    END IF;
-
-    -- Çalışan ekleme işlemi
-    INSERT INTO calisan(isim, soyisim, pozisyon, iletisim_numarasi) 
-    VALUES (p_isim, p_soyisim, p_pozisyon, p_iletisim_numarasi);
-END;
-$$ LANGUAGE plpgsql;
-
--- Çalışan Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_calisan(p_calisan_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Çalışanın var olup olmadığını kontrol et
-    IF NOT EXISTS (SELECT 1 FROM calisan WHERE calisan_id = p_calisan_id) THEN
-        RAISE EXCEPTION 'Çalışan ID % bulunamadı!', p_calisan_id;
-    ELSE
-        -- Çalışanı silme
-        DELETE FROM calisan WHERE calisan_id = p_calisan_id;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Çalışan Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_calisan(
-    p_calisan_id INT, 
-    p_yeni_isim VARCHAR, 
-    p_yeni_soyisim VARCHAR, 
-    p_yeni_pozisyon VARCHAR
-)
-RETURNS VOID AS $$
-BEGIN
-    -- Pozisyonun geçerli olup olmadığını kontrol et
-    IF p_yeni_pozisyon NOT IN ('garson', 'asci', 'personel') THEN
-        RAISE EXCEPTION 'Geçersiz pozisyon: %! Lütfen "garson", "asci" veya "personel" seçin.', p_yeni_pozisyon;
-    END IF;
-
-    -- Çalışan bilgilerini güncelle
-    UPDATE calisan 
-    SET isim = p_yeni_isim, soyisim = p_yeni_soyisim, pozisyon = p_yeni_pozisyon
-    WHERE calisan_id = p_calisan_id;
-
-    -- Eğer güncelleme yapılmadıysa (masa_id geçerli değilse)
-    IF NOT FOUND THEN
-        RAISE NOTICE 'Güncelleme yapılacak çalışan bulunamadı: calisan_id = %', p_calisan_id;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Yemek Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_yemek(p_isim VARCHAR, p_fiyat DECIMAL, p_kategori_id INT, p_icerik TEXT)
-RETURNS VOID AS $$
-BEGIN
-    -- Kategori var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM kategori WHERE kategori_id = p_kategori_id) THEN
-        RAISE EXCEPTION 'Geçersiz kategori_id: %', p_kategori_id;
-    ELSE
-        -- Yemek ekle
-        INSERT INTO yemek(isim, fiyat, kategori_id, icerik) 
-        VALUES (p_isim, p_fiyat, p_kategori_id, p_icerik);
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Yemek Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_yemek(p_yemek_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Yemek var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM yemek WHERE yemek_id = p_yemek_id) THEN
-        RAISE EXCEPTION 'Geçersiz yemek_id: %', p_yemek_id;
-    ELSE
-        -- Yemek sil
-        DELETE FROM yemek WHERE yemek_id = p_yemek_id;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Yemek Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_yemek(p_yemek_id INT, p_yeni_fiyat DECIMAL, p_yeni_icerik TEXT)
-RETURNS VOID AS $$
-BEGIN
-    -- Yemek var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM yemek WHERE yemek_id = p_yemek_id) THEN
-        RAISE EXCEPTION 'Geçersiz yemek_id: %', p_yemek_id;
-    END IF;
-    
-    -- Fiyat mantıklı mı kontrol et
-    IF p_yeni_fiyat <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz fiyat: %! Fiyat sıfırdan büyük olmalı.', p_yeni_fiyat;
-    END IF;
-
-    -- Yemek güncelle
-    UPDATE yemek 
-    SET fiyat = p_yeni_fiyat, icerik = p_yeni_icerik
-    WHERE yemek_id = p_yemek_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Sipariş Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_siparis(p_masa_id INT, p_calisan_id INT, p_toplam_tutar DECIMAL DEFAULT 0)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli masa var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM masa WHERE masa_id = p_masa_id) THEN
-        RAISE EXCEPTION 'Geçersiz masa_id: %', p_masa_id;
-    END IF;
-
-    -- Geçerli çalışan var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM calisan WHERE calisan_id = p_calisan_id) THEN
-        RAISE EXCEPTION 'Geçersiz calisan_id: %', p_calisan_id;
-    END IF;
-
-    -- Sipariş ekle
-    INSERT INTO siparis(masa_id, calisan_id, toplam_tutar) 
-    VALUES (p_masa_id, p_calisan_id, p_toplam_tutar);
-END;
-$$ LANGUAGE plpgsql;
-
--- Sipariş Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_siparis(p_siparis_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli sipariş var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM siparis WHERE siparis_id = p_siparis_id) THEN
-        RAISE EXCEPTION 'Geçersiz siparis_id: %', p_siparis_id;
-    END IF;
-
-    -- Siparişi sil
-    DELETE FROM siparis WHERE siparis_id = p_siparis_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Sipariş Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_siparis(p_siparis_id INT, p_yeni_toplam_tutar DECIMAL)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli sipariş var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM siparis WHERE siparis_id = p_siparis_id) THEN
-        RAISE EXCEPTION 'Geçersiz siparis_id: %', p_siparis_id;
-    END IF;
-
-    -- Yeni toplam tutar geçerli mi kontrol et
-    IF p_yeni_toplam_tutar < 0 THEN
-        RAISE EXCEPTION 'Geçersiz toplam_tutar: %! Toplam tutar sıfırdan büyük olmalı.', p_yeni_toplam_tutar;
-    END IF;
-
-    -- Siparişi güncelle
-    UPDATE siparis 
-    SET toplam_tutar = p_yeni_toplam_tutar
-    WHERE siparis_id = p_siparis_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Sipariş Detay Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_siparis_detay(p_siparis_id INT, p_yemek_id INT, p_miktar INT, p_fiyat DECIMAL)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli sipariş var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM siparis WHERE siparis_id = p_siparis_id) THEN
-        RAISE EXCEPTION 'Geçersiz siparis_id: %', p_siparis_id;
-    END IF;
-
-    -- Geçerli yemek var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM yemek WHERE yemek_id = p_yemek_id) THEN
-        RAISE EXCEPTION 'Geçersiz yemek_id: %', p_yemek_id;
-    END IF;
-
-    -- Geçerli miktar ve fiyat kontrolü
-    IF p_miktar <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz miktar: %! Miktar sıfırdan büyük olmalı.', p_miktar;
-    END IF;
-    IF p_fiyat <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz fiyat: %! Fiyat sıfırdan büyük olmalı.', p_fiyat;
-    END IF;
-
-    -- Sipariş detayını ekle
-    INSERT INTO siparis_detay(siparis_id, yemek_id, miktar, fiyat) 
-    VALUES (p_siparis_id, p_yemek_id, p_miktar, p_fiyat);
-END;
-$$ LANGUAGE plpgsql;
-
--- Sipariş Detay Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_siparis_detay(p_siparis_detay_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli sipariş detay var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM siparis_detay WHERE siparis_detay_id = p_siparis_detay_id) THEN
-        RAISE EXCEPTION 'Geçersiz siparis_detay_id: %', p_siparis_detay_id;
-    END IF;
-
-    -- Sipariş detayını sil
-    DELETE FROM siparis_detay WHERE siparis_detay_id = p_siparis_detay_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Sipariş Detay Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_siparis_detay(p_siparis_detay_id INT, p_yeni_miktar INT, p_yeni_fiyat DECIMAL)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli sipariş detay var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM siparis_detay WHERE siparis_detay_id = p_siparis_detay_id) THEN
-        RAISE EXCEPTION 'Geçersiz siparis_detay_id: %', p_siparis_detay_id;
-    END IF;
-
-    -- Geçerli miktar ve fiyat kontrolü
-    IF p_yeni_miktar <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz yeni miktar: %! Yeni miktar sıfırdan büyük olmalı.', p_yeni_miktar;
-    END IF;
-    IF p_yeni_fiyat <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz yeni fiyat: %! Yeni fiyat sıfırdan büyük olmalı.', p_yeni_fiyat;
-    END IF;
-
-    -- Sipariş detayını güncelle
-    UPDATE siparis_detay 
-    SET miktar = p_yeni_miktar, fiyat = p_yeni_fiyat
-    WHERE siparis_detay_id = p_siparis_detay_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Ödeme Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_odeme(p_siparis_id INT, p_odeme_tutari DECIMAL, p_odeme_turu VARCHAR)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli sipariş var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM siparis WHERE siparis_id = p_siparis_id) THEN
-        RAISE EXCEPTION 'Geçersiz siparis_id: %', p_siparis_id;
-    END IF;
-
-    -- Geçerli ödeme türü kontrolü
-    IF p_odeme_turu NOT IN ('nakit', 'kredi karti') THEN
-        RAISE EXCEPTION 'Geçersiz ödeme türü: %! Lütfen "nakit" veya "kredi kartı" seçin.', p_odeme_turu;
-    END IF;
-
-    -- Geçerli ödeme tutarı kontrolü
-    IF p_odeme_tutari <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz ödeme tutarı: %! Ödeme tutarı sıfırdan büyük olmalı.', p_odeme_tutari;
-    END IF;
-
-    -- Ödeme ekle
-    INSERT INTO odeme(siparis_id, odeme_tutari, odeme_turu) 
-    VALUES (p_siparis_id, p_odeme_tutari, p_odeme_turu);
-END;
-$$ LANGUAGE plpgsql;
-
--- Ödeme Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_odeme(p_odeme_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli ödeme var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM odeme WHERE odeme_id = p_odeme_id) THEN
-        RAISE EXCEPTION 'Geçersiz odeme_id: %', p_odeme_id;
-    END IF;
-
-    -- Ödemeyi sil
-    DELETE FROM odeme WHERE odeme_id = p_odeme_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Ödeme Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_odeme(p_odeme_id INT, p_yeni_tutar DECIMAL)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli ödeme var mı kontrol et
-    IF NOT EXISTS (SELECT 1 FROM odeme WHERE odeme_id = p_odeme_id) THEN
-        RAISE EXCEPTION 'Geçersiz odeme_id: %', p_odeme_id;
-    END IF;
-
-    -- Ödeme tutarını güncelle
-    UPDATE odeme 
-    SET odeme_tutari = p_yeni_tutar
-    WHERE odeme_id = p_odeme_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Rezervasyon Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION rezervasyon_ekle(
-    musteri_adSoyad TEXT,
-    musteri_telefon TEXT,
-    masa_id INTEGER,
-    tarih DATE,
-    baslangic_saat TIME,
-    bitis_saat TIME,
-    kisi_sayisi INTEGER
-)
-RETURNS VOID AS $$
-BEGIN
-    -- Rezervasyon ekleme işlemi
-    INSERT INTO rezervasyon (musteri_adSoyad, musteri_telefon, masa_id, tarih, baslangic_saat, bitis_saat, kisi_sayisi)
-    VALUES (musteri_adSoyad, musteri_telefon, masa_id, tarih, baslangic_saat, bitis_saat, kisi_sayisi);
-END;
-$$ LANGUAGE plpgsql;
-
--- Rezervasyon Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_rezervasyon(p_rezervasyon_id INT)
-RETURNS VOID AS $$
-BEGIN
-    DELETE FROM rezervasyon WHERE rezervasyon_id = p_rezervasyon_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Rezervasyon Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_rezervasyon(
-    p_rezervasyon_id INT,
-    p_yeni_adSoyad TEXT,
-    p_yeni_telefon TEXT,
-    p_yeni_masa_id INT,
-    p_yeni_tarih DATE,
-    p_yeni_baslangic_saat TIME,
-    p_yeni_bitis_saat TIME,
-    p_yeni_kisi_sayisi INT
-)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE rezervasyon
-    SET
-        musteri_adSoyad = p_yeni_adSoyad,
-        musteri_telefon = p_yeni_telefon,
-        masa_id = p_yeni_masa_id,
-        tarih = p_yeni_tarih,
-        baslangic_saat = p_yeni_baslangic_saat,
-        bitis_saat = p_yeni_bitis_saat,
-        kisi_sayisi = p_yeni_kisi_sayisi
-    WHERE rezervasyon_id = p_rezervasyon_id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -623,12 +278,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION ekle_malzeme(p_malzeme_adi VARCHAR, p_miktar INT)
 RETURNS VOID AS $$
 BEGIN
-    -- Geçerli miktar kontrolü
-    IF p_miktar <= 0 THEN
-        RAISE EXCEPTION 'Geçersiz miktar: %! Miktar sıfırdan büyük olmalı.', p_miktar;
-    END IF;
-
-    -- Malzeme ekle
     INSERT INTO malzeme(malzeme_adi, miktar) 
     VALUES (p_malzeme_adi, p_miktar);
 END;
@@ -638,12 +287,10 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION sil_malzeme(p_malzeme_id INT)
 RETURNS VOID AS $$
 BEGIN
-    -- Geçerli malzeme var mı kontrol et
     IF NOT EXISTS (SELECT 1 FROM malzeme WHERE malzeme_id = p_malzeme_id) THEN
         RAISE EXCEPTION 'Geçersiz malzeme_id: %', p_malzeme_id;
     END IF;
 
-    -- Malzemeyi sil
     DELETE FROM malzeme WHERE malzeme_id = p_malzeme_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -652,127 +299,13 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION guncelle_malzeme(p_malzeme_id INT, p_yeni_miktar INT)
 RETURNS VOID AS $$
 BEGIN
-    -- Geçerli malzeme var mı kontrol et
     IF NOT EXISTS (SELECT 1 FROM malzeme WHERE malzeme_id = p_malzeme_id) THEN
         RAISE EXCEPTION 'Geçersiz malzeme_id: %', p_malzeme_id;
     END IF;
 
-    -- Malzeme miktarını güncelle
     UPDATE malzeme 
     SET miktar = p_yeni_miktar 
     WHERE malzeme_id = p_malzeme_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Vardiya Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_vardiya(p_calisan_id INT, p_tarih DATE, p_baslangic_saati TIME, p_bitis_saati TIME)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli çalışan ID'si kontrolü
-    IF NOT EXISTS (SELECT 1 FROM calisan WHERE calisan_id = p_calisan_id) THEN
-        RAISE EXCEPTION 'Geçersiz calisan_id: %', p_calisan_id;
-    END IF;
-
-    -- Başlangıç saati ve bitiş saati kontrolü
-    IF p_baslangic_saati >= p_bitis_saati THEN
-        RAISE EXCEPTION 'Başlangıç saati bitiş saatinden önce olmalı: % - %', p_baslangic_saati, p_bitis_saati;
-    END IF;
-
-    -- Vardiya ekle
-    INSERT INTO vardiya(calisan_id, tarih, baslangic_saati, bitis_saati) 
-    VALUES (p_calisan_id, p_tarih, p_baslangic_saati, p_bitis_saati);
-END;
-$$ LANGUAGE plpgsql;
-
--- Vardiya Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_vardiya(p_vardiya_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli vardiya ID'si kontrolü
-    IF NOT EXISTS (SELECT 1 FROM vardiya WHERE vardiya_id = p_vardiya_id) THEN
-        RAISE EXCEPTION 'Geçersiz vardiya_id: %', p_vardiya_id;
-    END IF;
-
-    -- Vardiya sil
-    DELETE FROM vardiya WHERE vardiya_id = p_vardiya_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Vardiya Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_vardiya(p_vardiya_id INT, p_yeni_baslangic_saati TIME, p_yeni_bitis_saati TIME)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli vardiya ID'si kontrolü
-    IF NOT EXISTS (SELECT 1 FROM vardiya WHERE vardiya_id = p_vardiya_id) THEN
-        RAISE EXCEPTION 'Geçersiz vardiya_id: %', p_vardiya_id;
-    END IF;
-
-    -- Yeni başlangıç ve bitiş saati kontrolü
-    IF p_yeni_baslangic_saati >= p_yeni_bitis_saati THEN
-        RAISE EXCEPTION 'Yeni başlangıç saati bitiş saatinden önce olmalı: % - %', p_yeni_baslangic_saati, p_yeni_bitis_saati;
-    END IF;
-
-    -- Vardiya saatlerini güncelle
-    UPDATE vardiya 
-    SET baslangic_saati = p_yeni_baslangic_saati, bitis_saati = p_yeni_bitis_saati
-    WHERE vardiya_id = p_vardiya_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- İzin Talebi Ekleme Fonksiyonu
-CREATE OR REPLACE FUNCTION ekle_izin_talebi(p_calisan_id INT, p_baslangic_tarihi DATE, p_bitis_tarihi DATE, p_aciklama TEXT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli çalışan ID'si kontrolü
-    IF NOT EXISTS (SELECT 1 FROM calisan WHERE calisan_id = p_calisan_id) THEN
-        RAISE EXCEPTION 'Geçersiz calisan_id: %', p_calisan_id;
-    END IF;
-
-    -- Başlangıç ve bitiş tarihi kontrolü
-    IF p_baslangic_tarihi >= p_bitis_tarihi THEN
-        RAISE EXCEPTION 'Başlangıç tarihi bitiş tarihinden önce olmalı: % - %', p_baslangic_tarihi, p_bitis_tarihi;
-    END IF;
-
-    -- İzin talebi ekle
-    INSERT INTO izin_talebi(calisan_id, baslangic_tarihi, bitis_tarihi, aciklama)
-    VALUES (p_calisan_id, p_baslangic_tarihi, p_bitis_tarihi, p_aciklama);
-END;
-$$ LANGUAGE plpgsql;
-
--- İzin Talebi Silme Fonksiyonu
-CREATE OR REPLACE FUNCTION sil_izin_talebi(p_izin_id INT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli izin ID'si kontrolü
-    IF NOT EXISTS (SELECT 1 FROM izin_talebi WHERE izin_id = p_izin_id) THEN
-        RAISE EXCEPTION 'Geçersiz izin_id: %', p_izin_id;
-    END IF;
-
-    -- İzin talebini sil
-    DELETE FROM izin_talebi WHERE izin_id = p_izin_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- İzin Talebi Güncelleme Fonksiyonu
-CREATE OR REPLACE FUNCTION guncelle_izin_talebi(p_izin_id INT, p_yeni_baslangic_tarihi DATE, p_yeni_bitis_tarihi DATE, p_yeni_aciklama TEXT)
-RETURNS VOID AS $$
-BEGIN
-    -- Geçerli izin ID'si kontrolü
-    IF NOT EXISTS (SELECT 1 FROM izin_talebi WHERE izin_id = p_izin_id) THEN
-        RAISE EXCEPTION 'Geçersiz izin_id: %', p_izin_id;
-    END IF;
-
-    -- Yeni başlangıç ve bitiş tarihi kontrolü
-    IF p_yeni_baslangic_tarihi >= p_yeni_bitis_tarihi THEN
-        RAISE EXCEPTION 'Yeni başlangıç tarihi bitiş tarihinden önce olmalı: % - %', p_yeni_baslangic_tarihi, p_yeni_bitis_tarihi;
-    END IF;
-
-    -- İzin talebini güncelle
-    UPDATE izin_talebi
-    SET baslangic_tarihi = p_yeni_baslangic_tarihi, 
-        bitis_tarihi = p_yeni_bitis_tarihi,
-        aciklama = p_yeni_aciklama
-    WHERE izin_id = p_izin_id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -782,67 +315,53 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION kontrol_masa_detaylari()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- 8 kişilik masa kontrolü (maksimum 3 adet)
     IF NEW.kapasite = 8 AND (SELECT COUNT(*) FROM masa WHERE kapasite = 8) >= 3 THEN
         RAISE EXCEPTION 'Maksimum 8 kişilik masa sayısına ulaşıldı.';
     END IF;
 
-    -- 6 kişilik masa kontrolü (maksimum 5 adet)
     IF NEW.kapasite = 6 AND (SELECT COUNT(*) FROM masa WHERE kapasite = 6) >= 5 THEN
         RAISE EXCEPTION 'Maksimum 6 kişilik masa sayısına ulaşıldı.';
     END IF;
 
-    -- 5 kişilik masa kontrolü (maksimum 4 adet)
     IF NEW.kapasite = 5 AND (SELECT COUNT(*) FROM masa WHERE kapasite = 5) >= 4 THEN
         RAISE EXCEPTION 'Maksimum 5 kişilik masa sayısına ulaşıldı.';
     END IF;
 
-    -- 4 kişilik masa kontrolü (maksimum 7 adet)
     IF NEW.kapasite = 4 AND (SELECT COUNT(*) FROM masa WHERE kapasite = 4) >= 7 THEN
         RAISE EXCEPTION 'Maksimum 4 kişilik masa sayısına ulaşıldı.';
     END IF;
 
-    -- 2 kişilik masa kontrolü (maksimum 6 adet)
     IF NEW.kapasite = 2 AND (SELECT COUNT(*) FROM masa WHERE kapasite = 2) >= 6 THEN
         RAISE EXCEPTION 'Maksimum 2 kişilik masa sayısına ulaşıldı.';
     END IF;
 
-    -- Bahçe bölgesinde toplam 5 masa kontrolü (2 ve 4 kişilik toplamda 5 olabilir)
     IF NEW.bolge = 'bahçe' THEN
-        -- Bahçedeki toplam 2 kişilik ve 4 kişilik masaların sayısını kontrol et
         IF (SELECT COUNT(*) FROM masa WHERE bolge = 'bahçe' AND kapasite IN (2, 4)) >= 5 THEN
             RAISE EXCEPTION 'Bahçede toplamda yalnızca 5 masa bulunabilir (2 ve 4 kişilik masalar toplamı).';
         END IF;
 
-        -- Bahçede yalnızca 2 ve 4 kişilik masalar olabilir
         IF NEW.kapasite NOT IN (2, 4) THEN
             RAISE EXCEPTION 'Bahçede yalnızca 2 ve 4 kişilik masalar bulunabilir.';
         END IF;
     END IF;
 
-     -- Teras bölgesinde toplam 7 masa kontrolü (2, 4, 5, 6, 8 kişilik masalar toplamda 7 olmalı)
     IF NEW.bolge = 'teras' THEN
-        -- Terasta toplamda yalnızca 7 masa olmalı (2, 4, 5, 6, 8 kişilik masalar)
         IF (SELECT COUNT(*) FROM masa WHERE bolge = 'teras') >= 7 THEN
             RAISE EXCEPTION 'Terasda toplamda yalnızca 7 masa bulunabilir.';
         END IF;
 
-        -- 8 kişilik masa kontrolü (maksimum 1 adet)
         IF NEW.kapasite = 8 AND (SELECT COUNT(*) FROM masa WHERE bolge = 'teras' AND kapasite = 8) >= 1 THEN
             RAISE EXCEPTION 'Terasda maksimum 1 tane 8 kişilik masa bulunabilir.';
         END IF;
 
-        -- 6 kişilik masa kontrolü (maksimum 1 adet)
         IF NEW.kapasite = 6 AND (SELECT COUNT(*) FROM masa WHERE bolge = 'teras' AND kapasite = 6) >= 1 THEN
             RAISE EXCEPTION 'Terasda maksimum 1 tane 6 kişilik masa bulunabilir.';
         END IF;
 
-        -- 5 kişilik masa kontrolü (maksimum 2 adet)
         IF NEW.kapasite = 5 AND (SELECT COUNT(*) FROM masa WHERE bolge = 'teras' AND kapasite = 5) >= 2 THEN
             RAISE EXCEPTION 'Terasda maksimum 2 tane 5 kişilik masa bulunabilir.';
         END IF;
 
-        -- 2 kişilik ve 4 kişilik masalar herhangi bir sayıda olabilir (toplamda 7 masa sınırına dikkat edilerek)
         IF NEW.kapasite = 2 AND (SELECT COUNT(*) FROM masa WHERE bolge = 'teras' AND kapasite = 2) >= 5 THEN
             RAISE EXCEPTION 'Terasda maksimum 5 tane 2 kişilik masa bulunabilir.';
         ELSIF NEW.kapasite = 4 AND (SELECT COUNT(*) FROM masa WHERE bolge = 'teras' AND kapasite = 4) >= 4 THEN
@@ -850,7 +369,6 @@ BEGIN
         END IF;
     END IF;
 
-    -- İç mekan bölgesinde 2, 4, 5, 6 ve 8 kişilik masalar (maksimum 13 masa)
     IF NEW.bolge = 'iç mekan' THEN
         IF (SELECT COUNT(*) FROM masa WHERE bolge = 'iç mekan') >= 13 THEN
             RAISE EXCEPTION 'İç mekanda maksimum 13 masa bulunabilir.';
@@ -861,17 +379,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Siparişin toplam tutarını hesaplama fonksiyonu
 CREATE OR REPLACE FUNCTION update_toplam_tutar()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Siparişin toplam tutarını hesapla ve güncelle
     UPDATE siparis
     SET toplam_tutar = COALESCE((
             SELECT SUM(miktar * fiyat)
             FROM siparis_detay
-            WHERE siparis_id = COALESCE(NEW.siparis_id, OLD.siparis_id)  -- DELETE için OLD.siparis_id kullanıyoruz
+            WHERE siparis_id = COALESCE(NEW.siparis_id, OLD.siparis_id)  
         ), 0)
-    WHERE siparis_id = COALESCE(NEW.siparis_id, OLD.siparis_id);  -- DELETE için OLD.siparis_id kullanıyoruz
+    WHERE siparis_id = COALESCE(NEW.siparis_id, OLD.siparis_id); 
 
     RETURN NULL;
 END;
@@ -881,7 +399,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION odeme_tutari_ekle()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- siparis_id'ye bağlı toplam tutarı hesapla
     SELECT SUM(toplam_tutar) INTO NEW.odeme_tutari
     FROM siparis_detay
     WHERE siparis_id = NEW.siparis_id;
@@ -894,7 +411,6 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION fiyat_bilgisi_ekle()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- menu tablosundan yemek_id'ye göre fiyat bilgisi alınır
     SELECT fiyat INTO NEW.fiyat
     FROM yemek
     WHERE yemek_id = NEW.yemek_id;
@@ -903,10 +419,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Telefon numarası başka bir çalışan tarafından kullanılıyor mu kontrolü
 CREATE OR REPLACE FUNCTION calisan_telefon_kontrolu()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Telefon numarası başka bir çalışan tarafından kullanılıyor mu kontrol et
     IF EXISTS (
         SELECT 1
         FROM calisan
@@ -919,17 +435,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Masa kapasitesi ve kişi sayısı kontrolü
 CREATE OR REPLACE FUNCTION kontrol_masa_kapasitesi()
 RETURNS TRIGGER AS $$
 DECLARE
     masa_kapasite INT;
 BEGIN
-    -- Seçilen masanın kapasitesini al
     SELECT kapasite INTO masa_kapasite
     FROM masa
     WHERE masa_id = NEW.masa_id;
 
-    -- Masa kapasitesi, kişi sayısından küçükse hata döndür
     IF masa_kapasite < NEW.kisi_sayisi THEN
         RAISE EXCEPTION 'Seçilen masa kapasitesi (%s), kişi sayısını (%s) karşılayamaz.', masa_kapasite, NEW.kisi_sayisi;
     END IF;
@@ -938,10 +453,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Çalışanın izinli olduğu günlerde vardiya yazılmasını engelleyen ve vardiya sayısının kontrolünü yapan fonksiyon
 CREATE OR REPLACE FUNCTION kontrol_vardiya_limiti()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Çalışanın izinli olduğu günlerde vardiya yazılmasını engelle
     IF EXISTS (
         SELECT 1 
         FROM izin_talebi 
@@ -951,7 +466,6 @@ BEGIN
         RAISE EXCEPTION 'Çalışan izinli olduğu günlerde vardiya yazılamaz.';
     END IF;
 
-    -- Çalışanın aynı hafta içindeki vardiya sayısını kontrol et
     IF (SELECT COUNT(*) 
         FROM vardiya 
         WHERE calisan_id = NEW.calisan_id 
@@ -964,11 +478,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger Fonksiyonu: Vardiya Tablosundaki Saatlerin Değiştirilmesini Engelleme
+-- Vardiya Tablosundaki Saatlerin Değiştirilmesini Engelleme
 CREATE OR REPLACE FUNCTION vardiya_saati_degistirilemez()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer 'baslangic_saati' veya 'bitis_saati' değiştirilirse, eski değerleri geri yükleriz
     IF NEW.baslangic_saati <> '13:00:00' OR NEW.bitis_saati <> '22:00:00' THEN
         RAISE EXCEPTION 'Başlangıç ve bitiş saati sabittir, değiştirilemez!';
     END IF;
@@ -976,10 +489,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- İzin tarih aralığındaki vardiyaları silme
 CREATE OR REPLACE FUNCTION vardiya_sil()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- İzin tarih aralığındaki vardiyaları sil
     DELETE FROM vardiya
     WHERE calisan_id = NEW.calisan_id 
       AND tarih BETWEEN NEW.baslangic_tarihi AND NEW.bitis_tarihi;
@@ -988,10 +501,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Siparişi sadece garsonların alabileceği kontrolü
 CREATE OR REPLACE FUNCTION check_garson_calisan()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Garson kontrolü
     IF NOT EXISTS (
         SELECT 1 FROM calisan WHERE calisan_id = NEW.calisan_id AND pozisyon = 'garson'
     ) THEN
@@ -1001,10 +514,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+--Rezwervasyon çakışma kontrolünü yapan fonksiyon
 CREATE OR REPLACE FUNCTION rezervasyon_cakisma_kontrolu()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Çakışma kontrolü
     IF EXISTS (
         SELECT 1
         FROM rezervasyon
@@ -1022,38 +535,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+--Eğer yeni bir garson eklenmişse, garson tablosuna da veri ekleyen fonksiyon
 CREATE OR REPLACE FUNCTION insert_garson_data() 
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer yeni bir garson eklenmişse, garson tablosuna veri ekle
     IF NEW.pozisyon = 'garson' THEN
         INSERT INTO garson (calisan_id, servis_sayisi) 
-        VALUES (NEW.calisan_id, 0); -- Başlangıçta servis sayısı 0
+        VALUES (NEW.calisan_id, 0); 
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+--Eğer yeni bir aşçı eklenmişse, aşçı tablosuna da veri ekleyen fonksiyon
 CREATE OR REPLACE FUNCTION insert_asci_data() 
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer yeni bir aşçı eklenmişse, asci tablosuna veri ekle
     IF NEW.pozisyon = 'asci' THEN
         INSERT INTO asci (calisan_id, deneyim_derecesi) 
-        VALUES (NEW.calisan_id, 'yeni'); -- Başlangıçta deneyim derecesi 'yeni'
+        VALUES (NEW.calisan_id, 'yeni');
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+--Eğer yeni bir personel eklenmişse, personel tablosuna rastgele görev ekleyen fonksiyon
 CREATE OR REPLACE FUNCTION insert_personel_data() 
 RETURNS TRIGGER AS $$
 DECLARE
     random_gorev VARCHAR(100);
 BEGIN
-    -- Eğer yeni bir personel eklenmişse, personel tablosuna rastgele görev ekle
     IF NEW.pozisyon = 'personel' THEN
-        -- Rastgele görev seçimi
         random_gorev := CASE
             WHEN random() < 0.33 THEN 'temizlik personeli'
             WHEN random() < 0.66 THEN 'depo görevlisi'
@@ -1061,16 +573,16 @@ BEGIN
         END;
 
         INSERT INTO personel (calisan_id, gorev) 
-        VALUES (NEW.calisan_id, random_gorev); -- Rastgele görev atanıyor
+        VALUES (NEW.calisan_id, random_gorev); 
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- Garson tablosundaki servis sayısını sipariş alma durumuna göre güncelleyen fonksiyon
 CREATE OR REPLACE FUNCTION garson_servis_sayisi_guncelle()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Garson tablosundaki servis sayısını güncelle
     UPDATE garson
     SET servis_sayisi = (
         SELECT COUNT(*) FROM siparis WHERE calisan_id = NEW.calisan_id
@@ -1081,30 +593,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+--Yeni bir yemek eklenmişse ve içeriğinde yeni bir malzeme varsa malzeme tablosuna malzemeleri ekleyen fonksiyon
 CREATE OR REPLACE FUNCTION yemek_malzeme_ekle()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_malzeme_adi TEXT;  -- PL/pgSQL değişkeni için yeni bir isim
+    v_malzeme_adi TEXT;  
     malzeme_exists INT;
     v_malzeme_id INT;
 BEGIN
-    -- Yemek içeriğindeki malzemeleri virgülle ayır
     FOR v_malzeme_adi IN
-        SELECT unnest(string_to_array(NEW.icerik, ',')) -- İçeriği virgülle ayır
+        SELECT unnest(string_to_array(NEW.icerik, ',')) 
     LOOP
-        -- Malzemenin tablodan var olup olmadığını kontrol et
         SELECT malzeme_id INTO v_malzeme_id
         FROM malzeme
         WHERE malzeme.malzeme_adi = v_malzeme_adi
-        LIMIT 1;  -- sadece bir kayıt al
+        LIMIT 1;
         
-        -- Eğer malzeme yoksa, yeni malzeme ekle
         IF NOT FOUND THEN
             INSERT INTO malzeme (malzeme_adi, miktar)
             VALUES (v_malzeme_adi, 0) RETURNING malzeme_id INTO v_malzeme_id;
         END IF;
 
-        -- Yemek ile malzemeyi ilişkilendir
         INSERT INTO yemek_malzeme (yemek_id, malzeme_id)
         VALUES (NEW.yemek_id, v_malzeme_id); 
     END LOOP;
@@ -1113,21 +622,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Çalışan Silme Trigger Fonksiyonu 
+-- Çalışan Silindiğinde silinen_calisan tablosuna ekleyen fonksiyon
 CREATE OR REPLACE FUNCTION calisan_sil_trigger()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Silinen çalışanın bilgilerini silinen_calisan tablosuna ekle
     INSERT INTO silinen_calisan (calisan_id, isim, soyisim, pozisyon, iletisim_numarasi, baslangic_tarihi)
     VALUES (OLD.calisan_id, OLD.isim, OLD.soyisim, OLD.pozisyon, OLD.iletisim_numarasi, OLD.baslangic_tarihi);
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
 
+-- Rezervasyon ekleme işlemi sonrasında masa durumunu güncelleyen fonksiyon
 CREATE OR REPLACE FUNCTION masa_durum_guncelle()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer rezervasyon gelecekte ise masayı 'rezerve' yap
     IF (
         (NEW.tarih = CURRENT_DATE AND NEW.baslangic_saat > CURRENT_TIME)
         OR
@@ -1138,7 +646,6 @@ BEGIN
         WHERE masa_id = NEW.masa_id;
     END IF;
 
-    -- Eğer rezervasyon başlamışsa masayı 'dolu' yap
     IF (
         NEW.tarih = CURRENT_DATE 
         AND NEW.baslangic_saat <= CURRENT_TIME
@@ -1153,16 +660,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Rezervasyon silme işlemi sonrasında masa durumunu güncelleyen fonksiyon
 CREATE OR REPLACE FUNCTION masa_durum_bosalt()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer masada başka aktif rezervasyon yoksa masayı 'boş' yap
     IF NOT EXISTS (
         SELECT 1
         FROM rezervasyon
         WHERE masa_id = OLD.masa_id
         AND (
-            -- Gelecek rezervasyonlar veya hâlen devam eden rezervasyonlar varsa
             (tarih = CURRENT_DATE AND baslangic_saat > CURRENT_TIME)
             OR
             (tarih = CURRENT_DATE AND bitis_saat > CURRENT_TIME)
@@ -1174,7 +680,6 @@ BEGIN
         SET durum = 'bos'
         WHERE masa_id = OLD.masa_id;
     ELSE
-        -- Eğer başka bir rezervasyon varsa durumu 'rezerve' olarak bırak
         UPDATE masa
         SET durum = 'rezerve'
         WHERE masa_id = OLD.masa_id;
@@ -1184,15 +689,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Rezercasyondaki tarih, saat aralığı ve isim içeriği kontrolü
 CREATE OR REPLACE FUNCTION validate_rezervasyon()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- musteri_adSoyad kontrolü: Sadece harfler ve boşluklar
     IF NEW.musteri_adSoyad !~ '^[A-Za-zÇĞİÖŞÜçğıöşü\s]+$' THEN
         RAISE EXCEPTION 'Musteri AdSoyad sadece harf ve boşluk içerebilir: %', NEW.musteri_adSoyad;
     END IF;
 
-    -- Saat aralığı kontrolü: Başlangıç saati ve bitiş saati 13:00:00 - 22:00:00 arasında olmalı
     IF NEW.baslangic_saat < TIME '13:00:00' OR NEW.baslangic_saat > TIME '22:00:00' THEN
         RAISE EXCEPTION 'Başlangıç saati 13:00:00 ile 22:00:00 arasında olmalı: %', NEW.baslangic_saat;
     END IF;
@@ -1201,7 +705,6 @@ BEGIN
         RAISE EXCEPTION 'Bitiş saati 13:00:00 ile 22:00:00 arasında olmalı: %', NEW.bitis_saat;
     END IF;
 
-    -- Başlangıç saati, bitiş saatinden önce olmalı
     IF NEW.baslangic_saat >= NEW.bitis_saat THEN
         RAISE EXCEPTION 'Başlangıç saati, bitiş saatinden önce olmalı: % >= %', NEW.baslangic_saat, NEW.bitis_saat;
     END IF;
@@ -1210,10 +713,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- siparis_detay tablosuna ekleme yaparken siparis_id kontrolü
 CREATE OR REPLACE FUNCTION validate_siparis_id()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- siparis tablosunda siparis_id kontrolü yap
     IF NOT EXISTS (SELECT 1 FROM siparis WHERE siparis_id = NEW.siparis_id) THEN
         RAISE EXCEPTION 'Geçersiz siparis_id: %. siparis tablosunda bulunamadı.', NEW.siparis_id;
     END IF;
@@ -1222,10 +725,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- odeme tablosuna ekleme yaparken siparis_id kontrolü
 CREATE OR REPLACE FUNCTION validate_odeme_siparis_id()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- siparis tablosunda siparis_id kontrolü yap
     IF NOT EXISTS (SELECT 1 FROM siparis WHERE siparis_id = NEW.siparis_id) THEN
         RAISE EXCEPTION 'Geçersiz siparis_id: %. siparis tablosunda bulunamadı.', NEW.siparis_id;
     END IF;
@@ -1234,15 +737,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Yemek tablosuna ekleme yaparken ismi ve içeriği kontrol eden fonksiyon
 CREATE OR REPLACE FUNCTION validate_yemek_fields()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- isim alanı kontrolü: Sadece harfler ve boşluklar
     IF NEW.isim !~ '^[A-Za-zÇĞİÖŞÜçğıöşü\s]+$' THEN
         RAISE EXCEPTION 'Yemek ismi sadece harf ve boşluk içerebilir: %', NEW.isim;
     END IF;
 
-    -- icerik alanı kontrolü: Sadece harfler, boşluklar ve virgül
     IF NEW.icerik IS NOT NULL AND NEW.icerik !~ '^[A-Za-zÇĞİÖŞÜçğıöşü\s,]+$' THEN
         RAISE EXCEPTION 'Yemek içeriği sadece harf, boşluk ve virgül içerebilir: %', NEW.icerik;
     END IF;
@@ -1251,10 +753,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Kategori tablosuna ekleme yaparken kategori adı kontrolü
 CREATE OR REPLACE FUNCTION validate_kategori_adi()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- kategori_adi alanı kontrolü: Sadece harfler ve boşluklar
     IF NEW.kategori_adi !~ '^[A-Za-zÇĞİÖŞÜçğıöşü\s]+$' THEN
         RAISE EXCEPTION 'Kategori adı sadece harf ve boşluk içerebilir: %', NEW.kategori_adi;
     END IF;
@@ -1263,10 +765,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Malzeme tablosuna ekleme yaparken malzeme adı kontrolü
 CREATE OR REPLACE FUNCTION validate_malzeme_adi()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- malzeme_adi alanı kontrolü: Sadece harfler ve boşluklar
     IF NEW.malzeme_adi !~ '^[A-Za-zÇĞİÖŞÜçğıöşü\s]+$' THEN
         RAISE EXCEPTION 'Malzeme adı sadece harf ve boşluk içerebilir: %', NEW.malzeme_adi;
     END IF;
@@ -1275,10 +777,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Kategori silme işlemi yaparken kategoriye ait yemek var mı kontrolü
 CREATE OR REPLACE FUNCTION validate_kategori_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer kategoriye ait yemek varsa hata ver
     IF EXISTS (SELECT 1 FROM yemek WHERE kategori_id = OLD.kategori_id) THEN
         RAISE EXCEPTION 'Bu kategoriye ait yemekler var, silme işlemi yapılamaz: %', OLD.kategori_adi;
     END IF;
@@ -1287,6 +789,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Ödeme yaparken sipariş numarası ve daha önce ödeme yapılmış mı kontrolü
 CREATE OR REPLACE FUNCTION validate_siparis_id_for_odeme()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1304,10 +807,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Çalışan isim ve soyisim kontrolü
 CREATE OR REPLACE FUNCTION validate_calisan_isim_soyisim()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- İsim ve soyisim sadece harf ve boşluk içermelidir
     IF NEW.isim !~ '^[A-Za-zÇĞİÖŞÜçğıöşü\s]+$' THEN
         RAISE EXCEPTION 'Çalışan ismi sadece harf ve boşluk içerebilir: %', NEW.isim;
     END IF;
@@ -1320,10 +823,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Rezervasyon tarihi kontrolü
 CREATE OR REPLACE FUNCTION validate_rezervasyon_tarihi()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Eğer rezervasyon tarihi bugünden önceyse hata ver
     IF NEW.tarih < CURRENT_DATE THEN
         RAISE EXCEPTION 'Rezervasyon tarihi bugünden önce olamaz: %', NEW.tarih;
     END IF;
@@ -1332,15 +835,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- İzin talebi tarihleri kontrolü
 CREATE OR REPLACE FUNCTION validate_izin_talebi_tarihleri()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Başlangıç tarihi bitiş tarihinden önce veya aynı gün olmalı
     IF NEW.baslangic_tarihi > NEW.bitis_tarihi THEN
         RAISE EXCEPTION 'Başlangıç tarihi, bitiş tarihinden sonra olamaz: % - %', NEW.baslangic_tarihi, NEW.bitis_tarihi;
     END IF;
 
-    -- Başlangıç ve bitiş tarihleri bugünden sonra olmalı
     IF NEW.baslangic_tarihi <= CURRENT_DATE OR NEW.bitis_tarihi <= CURRENT_DATE THEN
         RAISE EXCEPTION 'Başlangıç ve bitiş tarihi bugünden sonraki bir tarih olmalı: % - %', NEW.baslangic_tarihi, NEW.bitis_tarihi;
     END IF;
@@ -1522,11 +1024,40 @@ VALUES
 ('Şefin Zeytinyağlı Seçimi', 460.00, 2, 'tuz'),
 ('Mercimek Çorbası', 100.00, 3, 'kırmızı mercimek, kuru soğan, havuç, patates, un, zeytinyağı, tereyağı, tuz, karabiber, kırmızı toz biber'),
 ('Ezogelin Çorbası', 100.00, 3, 'kırmızı mercimek, bulgur, pirinç, kuru soğan, domates salçası, biber salçası, tereyağı, zeytinyağı, nane, pul biber, tuz, karabiber'),
-('Terbiyeli Tavuk Çorbası', 150.00, 3, 'tavuk budu, şehriye, zeytinyağı, yoğurt, un, yumurta, sarımsak, Limon, karabiber, tuz');
+('Terbiyeli Tavuk Çorbası', 150.00, 3, 'tavuk budu, şehriye, zeytinyağı, yoğurt, un, yumurta, sarımsak, Limon, karabiber, tuz'),
+('Yeşil Bahçe Salatası', 300.00, 5, 'Akdeniz yeşillikleri, roka kuzu kulağı, sumak, kuru nane, limon, nar ekşisi, zeytinyağı, sos'),
+('Kaşık Salata', 320.00, 5, 'Domates, salatalık, soğan, maydonoz, biber, ceviz nar ekişisi, zeytinyağı'),
+('Peynirli Roka Salatası', 330.00, 5, 'Roka, Erzincan tulumu, domates, narekşisi, zeytinyağı, limon'),
+('Vişneli Kinoa Salatası', 360.00, 5, 'Vişne, Avokado, Akdeniz Yeşillikleri, Kinoa Zeytinyağı, Balzemik, Nar Ekşisi'),
+('Tavuklu Roka Salatası', 410.00, 5, 'Roka, erzincan tulumu, soya soslu göğüs tavuk, özel salata sosu'),
+('Etli Akdeniz Salatası', 500.00, 5, 'Roka, erzincan tulumu, soya soslu dana bonfile, özel salata sosu'),
+('Edirne Tava Ciğeri', 570.00, 4, 'Ciğer'),
+('Etli Kuru Fasulye', 380.00, 4, 'Erzurum İspir kuru fasulyesi, kuşbaşı et'),
+('Kuzu Tandır', 820.00, 4, 'Kuzu'),
+('Tavuk Çökertme', 480.00, 4, 'Tavuk bonfile, kibrit Patates, yoğurt, domates sos'),
+('Çökertme Kebabı', 600.00, 4, 'Dana bonfile, kibrit Patates, yoğurt, domates sos'),
+('Ala Nazik Kıymadan', 600.00, 4, 'Közlenmiş patlıcan, tereyağı, süzme yoğurt, zırh kıyma kebabı'),
+('Zırh Kıyma Acılı', 500.00, 4, 'Dana kuzu but eti, kuzu kaburga, kuzu kuyruk yağı, albiber, tuz'),
+('Yoğurtlu Kebap', 550.00, 4, 'Zırh Kıyma Kebabı, Kemik Sulu Tırnak Pide, Süzme Yoğurt, Tereyağı, Sos'),
+('Kayseri Mantısı', 380.00, 4, 'Tuz'),
+('Kuzu Şiş', 640.00, 4, 'Kuzu but'),
+('Mantar Soslu Antrikot', 700.00, 4, 'Mantar, Dana Antrikot'),
+('Izgara Köfte', 500.00, 4, 'Dana Kıyma'),
+('Tavuk Şiş', 450.00, 4, 'Tavuk Göğsü'),
+('Şalgam', 80.00, 6, 'Şalgam'),
+('Yayık Ayran', 75.00, 6, 'Yoğurt'),
+('Küçük su', 35.00, 6, 'Küçük su'),
+('Büyük su', 80.00, 6, 'Büyük su'),
+('Sade Soda', 60.00, 6, 'Sade Soda'),
+('Meyveli Soda', 60.00, 6, 'Meyveli Soda'),
+('Türk Kahvesi', 90.00, 6, 'Türk Kahvesi'),
+('Çay', 45.00, 6, 'Çay'),
+('Gazlı İçecekler', 90.00, 6, 'Gazlı İçecekler');
+
 
 INSERT INTO masa (kapasite, bolge, durum)
 VALUES
-(2, 'iç mekan', 'bos'),
+(6, 'iç mekan', 'bos'),
 (4, 'iç mekan', 'bos'),
 (4, 'bahçe', 'bos'),
 (6, 'iç mekan', 'bos'),
@@ -1537,7 +1068,7 @@ VALUES
 (4, 'iç mekan', 'bos'),
 (4, 'bahçe', 'bos'),
 (6, 'iç mekan', 'bos'),
-(2, 'iç mekan', 'bos'),
+(8, 'iç mekan', 'bos'),
 (6, 'iç mekan', 'bos'),
 (2, 'bahçe', 'bos'),
 (4, 'teras', 'bos');

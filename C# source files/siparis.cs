@@ -34,7 +34,7 @@ namespace RestaurantManagementSystem
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
@@ -102,8 +102,8 @@ namespace RestaurantManagementSystem
                 DataTable dt = new DataTable();
                 da.Fill(dt);
 
-                cmbMasaID.DisplayMember = "masa_id";  // ComboBox'ta gösterilecek olan alan
-                cmbMasaID.ValueMember = "masa_id";    // Seçilen öğenin değeri
+                cmbMasaID.DisplayMember = "masa_id";  
+                cmbMasaID.ValueMember = "masa_id"; 
                 cmbMasaID.DataSource = dt;
             }
             catch (Exception ex)
@@ -144,15 +144,13 @@ namespace RestaurantManagementSystem
 
                 string query = @"
             INSERT INTO siparis (masa_id, calisan_id)
-            VALUES (@masaID, @calisanID) RETURNING siparis_id";  // Yeni siparişin ID'sini al
+            VALUES (@masaID, @calisanID) RETURNING siparis_id";  
 
                 using (var cmd = new NpgsqlCommand(query, conn))
                 {
-                    // Parametreleri ekliyoruz
                     cmd.Parameters.AddWithValue("@masaID", cmbMasaID.SelectedValue);
                     cmd.Parameters.AddWithValue("@calisanID", cmbCalisanID.SelectedValue);
 
-                    // Eğer bağlantı açık ise kapatıyoruz
                     if (conn.State == ConnectionState.Open)
                     {
                         conn.Close();
@@ -172,7 +170,6 @@ namespace RestaurantManagementSystem
             }
             catch (Exception ex)
             {
-                // Hata durumunda kullanıcıyı bilgilendir
                 MessageBox.Show($"Sipariş eklerken hata oluştu: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -194,7 +191,6 @@ namespace RestaurantManagementSystem
                 {
                     cmd.Parameters.AddWithValue("@siparisID", siparisId);
 
-                    // Bağlantıyı açmadan önce, bağlantının zaten açık olup olmadığını kontrol ediyoruz
                     if (conn.State != ConnectionState.Open)
                     {
                         conn.Open();

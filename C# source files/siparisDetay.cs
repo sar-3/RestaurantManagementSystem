@@ -28,7 +28,7 @@ namespace RestaurantManagementSystem
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
@@ -119,7 +119,7 @@ namespace RestaurantManagementSystem
             if (comboBoxKategori.SelectedValue != null)
             {
                 int selectedKategoriId = (int)comboBoxKategori.SelectedValue;
-                LoadYemekData(selectedKategoriId); // Kategoriyi parametre olarak geçiyoruz
+                LoadYemekData(selectedKategoriId); 
             }
         }
         private void LoadYemekData(int kategoriId)
@@ -127,7 +127,7 @@ namespace RestaurantManagementSystem
             try
             {
                 conn.Open();
-                string query = "SELECT yemek_id, isim FROM yemek WHERE kategori_id = @kategori_id"; // Yemek tablosunda kategoriye göre filtreleme
+                string query = "SELECT yemek_id, isim FROM yemek WHERE kategori_id = @kategori_id"; 
                 NpgsqlDataAdapter da = new NpgsqlDataAdapter(query, conn);
                 da.SelectCommand.Parameters.AddWithValue("@kategori_id", kategoriId);
                 DataTable dt = new DataTable();
@@ -168,7 +168,7 @@ namespace RestaurantManagementSystem
         }
         private void yemekekleEkle_Click(object sender, EventArgs e)
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             try
             {
@@ -223,7 +223,7 @@ namespace RestaurantManagementSystem
             {
                 int siparisDetayId = Convert.ToInt32(dataGridViewSiparisDetay.SelectedRows[0].Cells["siparis_detay_id"].Value);
 
-                string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+                string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
                 using (var conn = new NpgsqlConnection(connectionString))
                 {
@@ -255,7 +255,6 @@ namespace RestaurantManagementSystem
         }
         private void PopulateFieldsFromSelectedRow(int rowIndex)
         {
-            // Seçilen satırdaki hücre değerlerini al
             DataGridViewRow selectedRow = dataGridViewSiparisDetay.Rows[rowIndex];
 
             txtSiparisId.Text = selectedRow.Cells["siparis_id"].Value.ToString();
@@ -269,65 +268,6 @@ namespace RestaurantManagementSystem
             if (e.RowIndex >= 0)
             {
                 PopulateFieldsFromSelectedRow(e.RowIndex);
-            }
-        }
-        private void yemekGuncelle_Click(object sender, EventArgs e)
-        {
-            if (dataGridViewSiparisDetay.SelectedRows.Count == 0)
-            {
-                MessageBox.Show("Lütfen güncellemek istediğiniz sipariş detayını seçin.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(txtSiparisId.Text) || !int.TryParse(txtSiparisId.Text, out int siparisId))
-            {
-                MessageBox.Show("Geçerli bir sipariş ID giriniz.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (comboBoxYemek.SelectedValue == null || !int.TryParse(comboBoxYemek.SelectedValue.ToString(), out int yemekId))
-            {
-                MessageBox.Show("Geçerli bir yemek seçiniz.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            int miktar = (int)numericUpDownMiktar.Value;
-            int siparisDetayId = Convert.ToInt32(dataGridViewSiparisDetay.SelectedRows[0].Cells["siparis_detay_id"].Value);
-
-            try
-            {
-                string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
-
-                using (var conn = new NpgsqlConnection(connectionString))
-                {
-                    conn.Open();
-
-                    string query = "UPDATE siparis_detay SET siparis_id = @siparis_id, yemek_id = @yemek_id, miktar = @miktar WHERE siparis_detay_id = @siparis_detay_id";
-
-                    using (var cmd = new NpgsqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@siparis_id", siparisId);
-                        cmd.Parameters.AddWithValue("@yemek_id", yemekId);
-                        cmd.Parameters.AddWithValue("@miktar", miktar);
-                        cmd.Parameters.AddWithValue("@siparis_detay_id", siparisDetayId);
-
-                        int rowsAffected = cmd.ExecuteNonQuery();
-
-                        if (rowsAffected > 0)
-                        {
-                            MessageBox.Show("Sipariş detayı başarıyla güncellendi.", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            LoadSiparisDetayData(); // Veriyi güncelle
-                        }
-                        else
-                        {
-                            MessageBox.Show("Güncelleme işlemi başarısız oldu.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Güncelleme hatası: {ex.Message}\n{ex.StackTrace}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         private void cikis_Click(object sender, EventArgs e)
@@ -396,8 +336,67 @@ namespace RestaurantManagementSystem
                 return;
             }
 
-            // Sipariş detaylarını yükle ve MessageBox'ta göster
             LoadAndDisplaySiparisDetay(siparisId);
+        }
+        private void yemekEkleGuncelle_Click(object sender, EventArgs e)
+        {
+            if (dataGridViewSiparisDetay.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Lütfen güncellemek istediğiniz sipariş detayını seçin.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                int siparisDetayId = Convert.ToInt32(dataGridViewSiparisDetay.SelectedRows[0].Cells["siparis_detay_id"].Value);
+
+                int yeniYemekId = (int)comboBoxYemek.SelectedValue;
+                int yeniMiktar = (int)numericUpDownMiktar.Value;
+
+                decimal yeniFiyat = 0;
+                using (var conn = new NpgsqlConnection("Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3"))
+                {
+                    conn.Open();
+
+                    string fiyatQuery = "SELECT fiyat FROM yemek WHERE yemek_id = @yemek_id";
+                    using (var cmd = new NpgsqlCommand(fiyatQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@yemek_id", yeniYemekId);
+                        yeniFiyat = (decimal)cmd.ExecuteScalar();
+                    }
+                }
+
+                string updateQuery = "UPDATE siparis_detay SET yemek_id = @yemek_id, miktar = @miktar, fiyat = @fiyat WHERE siparis_detay_id = @siparis_detay_id";
+
+                using (var conn = new NpgsqlConnection("Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3"))
+                {
+                    conn.Open();
+
+                    using (var cmd = new NpgsqlCommand(updateQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@siparis_detay_id", siparisDetayId);
+                        cmd.Parameters.AddWithValue("@yemek_id", yeniYemekId);
+                        cmd.Parameters.AddWithValue("@miktar", yeniMiktar);
+                        cmd.Parameters.AddWithValue("@fiyat", yeniFiyat);
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            MessageBox.Show("Sipariş detayı başarıyla güncellendi.", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            LoadSiparisDetayData(); // Veriyi güncelle
+                        }
+                        else
+                        {
+                            MessageBox.Show("Güncelleme işlemi başarısız oldu.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Güncelleme hatası: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

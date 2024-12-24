@@ -38,7 +38,6 @@ namespace RestaurantManagementSystem
                 textBox.Text = defaultText; 
                 textBox.ForeColor = Color.Gray; 
 
-                // Olayları bağla
                 textBox.GotFocus += TextBox_GotFocus;
                 textBox.LostFocus += TextBox_LostFocus;
             }
@@ -48,11 +47,10 @@ namespace RestaurantManagementSystem
             var textBox = sender as TextBox;
             if (textBox != null && defaultTexts.ContainsKey(textBox))
             {
-                // Varsayılan metinse temizle
                 if (textBox.Text == defaultTexts[textBox])
                 {
                     textBox.Text = "";
-                    textBox.ForeColor = Color.Black; // Yazı rengini siyah yap
+                    textBox.ForeColor = Color.Black; 
                 }
             }
         }
@@ -79,12 +77,11 @@ namespace RestaurantManagementSystem
             var textBox = sender as TextBox;
             if (textBox != null)
             {
-                // PasswordChar'ı ayarla
                 textBox.PasswordChar = '•';
                 if (textBox.Text == defaultTexts[textBox])
                 {
                     textBox.Text = "";
-                    textBox.ForeColor = Color.Black; // Yazı rengini siyah yap
+                    textBox.ForeColor = Color.Black;
                 }
             }
         }
@@ -93,18 +90,17 @@ namespace RestaurantManagementSystem
             var textBox = sender as TextBox;
             if (textBox != null)
             {
-                // Eğer TextBox boşsa varsayılan metni geri yükle
                 if (string.IsNullOrWhiteSpace(textBox.Text))
                 {
                     textBox.Text = defaultTexts[textBox];
                     textBox.ForeColor = Color.Gray;
-                    textBox.PasswordChar = '\0'; // PasswordChar'ı kaldır
+                    textBox.PasswordChar = '\0'; 
                 }
             }
         }
         private void ConnectToDatabase()
         {
-            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=sare1234;Database=RestaurantManagementSystem_";
+            string connectionString = "Host=localhost;Port=5432;Username=postgres;Password=******;Database=RestaurantManagementSystem_sar3";
 
             conn = new NpgsqlConnection(connectionString);
 
